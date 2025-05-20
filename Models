@@ -1,0 +1,99 @@
+class ResidualChannelAttentionBlock(nn.Module):
+    def __init__(self, num_feats):
+        super(ResidualChannelAttentionBlock, self).__init__()
+
+        # Residual block without batch normalization
+        self.res_block = nn.Sequential(
+            nn.Conv2d(num_feats, num_feats, kernel_size=3, padding=1),
+            nn.PReLU(),
+            nn.Conv2d(num_feats, num_feats, kernel_size=3, padding=1)
+        )
+
+        # Channel attention mechanism
+        self.channel_attention = ChannelAttention(num_feats)
+
+    def forward(self, x):
+        res = x
+        x = self.res_block(x)
+        x = self.channel_attention(x)
+        x += res  # Residual connection
+        return x
+
+class ChannelAttention(nn.Module):
+    def __init__(self, num_feats):
+        super(ChannelAttention, self).__init__()
+
+        # Global average pooling followed by fully connected layers
+        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
+
+        self.fc = nn.Sequential(
+            nn.Linear(num_feats, num_feats // 8),  # Reduced dimensionality for efficiency
+            nn.ReLU(),
+            nn.Linear(num_feats // 8, num_feats),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+
+        # Global average pooling and attention calculation
+        avg_pool = self.global_avg_pool(x).view(b, c)
+        attention = self.fc(avg_pool).view(b, c, 1, 1)
+
+        return x * attention
+
+
+class FrequencyFeatureEnhancement(nn.Module):
+    def __init__(self, num_feats):
+        super(FrequencyFeatureEnhancement, self).__init__()
+
+        # Branch 1: Standard convolution for local feature extraction (High freq details)
+        self.branch1 = nn.Conv2d(num_feats, num_feats // 2, kernel_size=3, padding=1)
+
+        # Branch 2: Dilated convolution for medium-scale receptive field
+        self.branch2 = nn.Conv2d(num_feats, num_feats // 2, kernel_size=3, padding=2, dilation=2)
+
+        # Branch 3: Larger dilation rate for global context
+        self.branch3 = nn.Conv2d(num_feats, num_feats // 2, kernel_size=3, padding=4, dilation=4)
+
+        # Feature fusion layer to combine outputs from all branches
+        self.fusion = nn.Conv2d(num_feats * 3 // 2, num_feats, kernel_size=1)
+
+        # Spatial attention module to refine fused features
+        self.spatial_attention = SpatialAttention()
+
+    def forward(self, x):
+        # Process input through each branch
+        b1 = self.branch1(x)  # Local features
+        b2 = self.branch2(x)  # Medium-scale features
+        b3 = self.branch3(x)  # Global context
+
+        # Concatenate outputs from all branches along the channel dimension
+        fused = torch.cat([b1, b2, b3], dim=1)
+
+        # Fuse features and apply spatial attention
+        fused = self.fusion(fused)
+        enhanced = self.spatial_attention(fused)
+
+        return enhanced
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self):
+        super(SpatialAttention, self).__init__()
+
+        # Convolutional layers for spatial attention mechanism
+        self.conv1 = nn.Conv2d(2, 1, kernel_size=7, padding=3)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # Compute average and max pooling along the channel axis
+        avg_pool = torch.mean(x, dim=1, keepdim=True)  # Average pooling
+        max_pool, _ = torch.max(x, dim=1, keepdim=True)  # Max pooling
+
+        # Concatenate pooled features and apply convolution + sigmoid activation
+        pool_concat = torch.cat([avg_pool, max_pool], dim=1)
+        attention_map = self.sigmoid(self.conv1(pool_concat))
+
+        # Multiply input by the attention map
+        return x * attention_map
