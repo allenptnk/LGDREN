@@ -1,6 +1,6 @@
-class ResidualChannelAttentionBlock(nn.Module):
+class ChannelAttentionRestorationBlocK(nn.Module):
     def __init__(self, num_feats):
-        super(ResidualChannelAttentionBlock, self).__init__()
+        super(ChannelAttentionRestorationBlocK, self).__init__()
 
         # Residual block without batch normalization
         self.res_block = nn.Sequential(
@@ -43,9 +43,9 @@ class ChannelAttention(nn.Module):
         return x * attention
 
 
-class FrequencyFeatureEnhancement(nn.Module):
+class FrequencyFeatureEnhancementBlock(nn.Module):
     def __init__(self, num_feats):
-        super(FrequencyFeatureEnhancement, self).__init__()
+        super(FrequencyFeatureEnhancementBlock, self).__init__()
 
         # Branch 1: Standard convolution for local feature extraction (High freq details)
         self.branch1 = nn.Conv2d(num_feats, num_feats // 2, kernel_size=3, padding=1)
