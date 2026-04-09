@@ -6,5 +6,4 @@ Restore local features and high-frequency detail by introducing two novel module
 
 Results-
 
-
-[Qual5_compare.drawio.pdf](https://github.com/user-attachments/files/26599998/Qual5_compare.drawio.pdf)
+<img width="550" height="134" alt="image" src="https://github.com/user-attachments/files/26599998/Qual5_compare.drawio.pdf" />
